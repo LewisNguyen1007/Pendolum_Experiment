@@ -1,153 +1,146 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pendulum Attention Experiment – Response Form</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pendulum Attention Experiment – Response Form</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
 
-    <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
-        <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">
-            Pendulum Attention Experiment
-        </h1>
+  <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
+    <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">
+      Pendulum Attention Experiment
+    </h1>
 
-        <p class="text-gray-600 mb-6 text-sm leading-relaxed">
-            After watching the video for the current session, please enter the 
-            <strong>highest number of consecutive oscillations (Max Streak)</strong> 
-            you were able to count before losing track and restarting from one.
-        </p>
+    <p class="text-gray-600 mb-6 text-sm leading-relaxed">
+      After watching the video for the current session, please enter the
+      <strong>highest number of consecutive oscillations (Max Streak)</strong>
+      you were able to count before losing track and restarting from one.
+    </p>
 
-        <form id="responseForm" class="space-y-6">
-            <!-- Session Selection -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Select Session:</label>
-                <div class="space-y-2">
-                    <label class="flex items-center cursor-pointer">
-                        <input type="radio" name="session" value="0" class="mr-2" checked>
-                        Session 0 (24s – 3s/cycle)
-                    </label>
-                    <label class="flex items-center cursor-pointer">
-                        <input type="radio" name="session" value="1" class="mr-2">
-                        Session 1 (58s – 4s/cycle)
-                    </label>
-                    <label class="flex items-center cursor-pointer">
-                        <input type="radio" name="session" value="2" class="mr-2">
-                        Session 2 (58s – 3.5s/cycle, with distraction)
-                    </label>
-                </div>
-            </div>
+    <form id="responseForm" class="space-y-6">
+      <!-- Session Selection -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Select Session:</label>
+        <div class="space-y-2">
+          <label class="flex items-center cursor-pointer">
+            <input type="radio" name="session" value="0" class="mr-2" checked>
+            Session 0
+          </label>
+          <label class="flex items-center cursor-pointer">
+            <input type="radio" name="session" value="1" class="mr-2">
+            Session 1
+          </label>
+          <label class="flex items-center cursor-pointer">
+            <input type="radio" name="session" value="2" class="mr-2">
+            Session 2
+          </label>
+        </div>
+      </div>
 
-            <!-- Max Streak Selection -->
-            <div>
-                <label for="maxStreak" class="block text-sm font-medium text-gray-700 mb-2">
-                    Max Streak (1–20):
-                </label>
-                <select 
-                    id="maxStreak" 
-                    name="maxStreak" 
-                    class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                    <option value="">-- Select a number --</option>
-                </select>
-            </div>
+      <!-- Max Streak -->
+      <div>
+        <label for="maxStreak" class="block text-sm font-medium text-gray-700 mb-2">
+          Max Streak (1–20):
+        </label>
+        <select id="maxStreak" name="maxStreak"
+                class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="">-- Select a number --</option>
+        </select>
+      </div>
 
-            <!-- Submit Button -->
-            <button 
-                type="submit" 
-                id="submitBtn" 
-                class="w-full bg-blue-600 text-white p-3 rounded-lg font-semibold shadow-md hover:bg-blue-700 transition"
-            >
-                Submit Response
-            </button>
-        </form>
+      <button type="submit" id="submitBtn"
+              class="w-full bg-blue-600 text-white p-3 rounded-lg font-semibold shadow-md hover:bg-blue-700 transition">
+        Submit Response
+      </button>
+    </form>
 
-        <!-- Status message -->
-        <div id="statusMessage" class="mt-6 text-center text-sm font-medium"></div>
-    </div>
+    <div id="statusMessage" class="mt-6 text-center text-sm font-medium"></div>
+  </div>
 
-    <script>
-        // TODO: Replace with your actual Apps Script URL
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzuw5IezdEavu7NrQfAYu_1asHO-27lBXVhv550bLgjY63R8SJJMYAWaBKNoyFnu7RH/exec";
+  <script>
+    // Connected to your deployed Web App (Anyone, /exec)
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzuw5IezdEavu7NrQfAYu_1asHO-27lBXVhv550bLgjY63R8SJJMYAWaBKNoyFnu7RH/exec";
 
-        const maxStreakSelect = document.getElementById('maxStreak');
-        const responseForm = document.getElementById('responseForm');
-        const submitBtn = document.getElementById('submitBtn');
-        const statusMessage = document.getElementById('statusMessage');
+    const maxStreakSelect = document.getElementById('maxStreak');
+    const responseForm    = document.getElementById('responseForm');
+    const submitBtn       = document.getElementById('submitBtn');
+    const statusMessage   = document.getElementById('statusMessage');
 
-        // Populate MaxStreak options (1–20)
-        for (let i = 1; i <= 20; i++) {
-            const option = document.createElement('option');
-            option.value = i;
-            option.textContent = i;
-            maxStreakSelect.appendChild(option);
+    // Populate MaxStreak options (1–20)
+    for (let i = 1; i <= 20; i++) {
+      const option = document.createElement('option');
+      option.value = i;
+      option.textContent = i;
+      maxStreakSelect.appendChild(option);
+    }
+
+    // UserID with 15-minute TTL in localStorage
+    function getUserID() {
+      const now = Date.now();
+      const ttl = 15 * 60 * 1000; // 15 minutes
+      const storedID = localStorage.getItem('pendulumUserID');
+      const storedTs = localStorage.getItem('pendulumUserTimestamp');
+
+      if (storedID && storedTs && (now - parseInt(storedTs, 10)) < ttl) {
+        return storedID;
+      }
+      const newID = (crypto && crypto.randomUUID) ? crypto.randomUUID() :
+                    String(now) + Math.random().toString(16).slice(2);
+      localStorage.setItem('pendulumUserID', newID);
+      localStorage.setItem('pendulumUserTimestamp', String(now));
+      return newID;
+    }
+
+    responseForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const userID   = getUserID();
+      const session  = document.querySelector('input[name="session"]:checked').value;
+      const maxStreak = maxStreakSelect.value;
+
+      if (!maxStreak) {
+        alert("Please select a Max Streak value before submitting.");
+        return;
+      }
+
+      submitBtn.disabled = true;
+      statusMessage.textContent = "Submitting response...";
+      statusMessage.className = "mt-6 text-center text-sm font-medium text-blue-600";
+
+      try {
+        // FormData submission (no custom headers) → no CORS preflight
+        const fd = new FormData();
+        fd.append('userID', userID);
+        fd.append('session', session);
+        fd.append('maxStreak', maxStreak);
+
+        const res = await fetch(SCRIPT_URL, { method: 'POST', body: fd });
+        if (!res.ok) throw new Error("Server returned " + res.status);
+
+        // Expect JSON from GAS
+        const result = await res.json();
+        if (result && result.status === 'success') {
+          statusMessage.textContent = "✅ Submitted successfully! You may close this page or proceed to the next session.";
+          statusMessage.className = "mt-6 text-center text-sm font-medium text-green-600";
+          maxStreakSelect.value = ""; // reset streak; keep session
+        } else {
+          throw new Error(result && result.message ? result.message : "Unknown error");
         }
-
-        // Generate or reuse a UserID with TTL of 15 minutes
-        function getUserID() {
-            const now = Date.now();
-            const ttl = 15 * 60 * 1000; // 15 minutes
-            const storedID = localStorage.getItem('pendulumUserID');
-            const timestamp = localStorage.getItem('pendulumUserTimestamp');
-
-            if (storedID && timestamp && (now - parseInt(timestamp)) < ttl) {
-                return storedID;
-            } else {
-                const newID = crypto.randomUUID();
-                localStorage.setItem('pendulumUserID', newID);
-                localStorage.setItem('pendulumUserTimestamp', now.toString());
-                return newID;
-            }
-        }
-
-        responseForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const userID = getUserID();
-            const session = document.querySelector('input[name="session"]:checked').value;
-            const maxStreak = maxStreakSelect.value;
-
-            if (!maxStreak) {
-                alert("Please select a Max Streak value before submitting.");
-                return;
-            }
-
-            submitBtn.disabled = true;
-            statusMessage.textContent = "Submitting response...";
-            statusMessage.className = "mt-6 text-center text-sm font-medium text-blue-600";
-
-            try {
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ userID, session, maxStreak })
-                });
-
-                if (response.ok) {
-                    statusMessage.textContent = "✅ Submitted successfully! You may close this page or proceed to the next session.";
-                    statusMessage.className = "mt-6 text-center text-sm font-medium text-green-600";
-                    maxStreakSelect.value = ""; // Reset MaxStreak for next entry
-                } else {
-                    throw new Error("Server error");
-                }
-            } catch (error) {
-                statusMessage.textContent = "❌ Submission failed. Please try again.";
-                statusMessage.className = "mt-6 text-center text-sm font-medium text-red-600";
-            } finally {
-                submitBtn.disabled = false;
-            }
-        });
-    </script>
-
+      } catch (err) {
+        console.error(err);
+        statusMessage.textContent = "❌ Submission failed. Please try again.";
+        statusMessage.className = "mt-6 text-center text-sm font-medium text-red-600";
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
 </body>
 </html>
