@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Pendulum Attention Experiment – Results Dashboard</title>
 
-  <!-- Tailwind for quick layout -->
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Chart.js v4 -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <!-- jStat for t-test p-values -->
+  <!-- jStat for t-test -->
   <script src="https://cdn.jsdelivr.net/npm/jstat@1.9.6/dist/jstat.min.js"></script>
 
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
@@ -21,21 +21,21 @@
     .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; background:#eef2ff; color:#3730a3; }
     .btn { padding: 10px 14px; border-radius: 10px; background:#1d4ed8; color:#fff; font-weight:600; }
     .btn:hover { background:#1e40af; }
-    .btn-secondary { background:#0f766e; }
-    .btn-secondary:hover { background:#115e59; }
     .pill { border-radius: 999px; background:#f1f5f9; padding:2px 10px; font-size:12px; }
     .code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .btn-ghost { padding: 8px 12px; border-radius: 10px; background:#f1f5f9; color:#0f172a; font-weight:600; }
+    .btn-ghost:hover { background:#e2e8f0; }
   </style>
 </head>
 <body class="bg-slate-50 min-h-screen p-4 md:p-8">
-
   <div class="max-w-6xl mx-auto space-y-6">
+
     <header class="flex items-start justify-between gap-4">
       <div>
         <h1 class="text-2xl md:text-3xl font-bold text-slate-900">Pendulum Attention Experiment – Results</h1>
         <p class="muted mt-1 text-sm">
-          Session config is encoded below. Raw counts use all submissions. Ratio-based charts & tests
-          <span class="code">exclude users with any ratio &gt; 1.2</span>.
+          Session config is encoded below. Raw counts use filtered submissions.
+          Ratio-based charts & tests exclude users if any session ratio &gt; <span class="code">1.2</span>.
         </p>
       </div>
       <div class="text-right">
@@ -44,7 +44,7 @@
       </div>
     </header>
 
-    <!-- Session config display -->
+    <!-- Session config -->
     <section class="card bg-white p-5">
       <div class="flex flex-wrap gap-3 items-center">
         <div class="pill">Session 0: <span class="code">24s</span>, cycle <span class="code">3.0s</span>, maxCycles=<span class="code">8</span></div>
@@ -52,6 +52,43 @@
         <div class="pill">Session 2: <span class="code">58s</span>, cycle <span class="code">3.5s</span>, maxCycles=<span class="code">16</span></div>
         <div class="pill">Exclusion: ratio &gt; 1.2 (drop entire user)</div>
       </div>
+    </section>
+
+    <!-- FILTERS BLOCK -->
+    <section class="card bg-white p-5">
+      <div class="flex flex-col md:flex-row md:items-end gap-4">
+        <!-- Session Filter -->
+        <div class="flex-1">
+          <label for="sessionFilter" class="block text-sm font-medium text-gray-700 mb-2">
+            Session filter
+          </label>
+          <select id="sessionFilter" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="all" selected>All Sessions</option>
+            <option value="0">Session 0</option>
+            <option value="1">Session 1</option>
+            <option value="2">Session 2</option>
+          </select>
+        </div>
+        <!-- Date Filter -->
+        <div class="flex-1">
+          <label for="dateFilter" class="block text-sm font-medium text-gray-700 mb-2">
+            Date filter
+          </label>
+          <select id="dateFilter" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="all" selected>All Days</option>
+            <!-- dates filled dynamically -->
+          </select>
+        </div>
+        <!-- Apply -->
+        <div class="md:w-auto">
+          <button id="applyBtn" class="btn w-full md:w-auto">Apply Filters</button>
+        </div>
+        <!-- Quick reset -->
+        <div class="md:w-auto">
+          <button id="resetBtn" class="btn-ghost w-full md:w-auto">Reset</button>
+        </div>
+      </div>
+      <div id="filterNote" class="text-xs muted mt-3"></div>
     </section>
 
     <!-- Loading / Error / Empty -->
@@ -69,7 +106,7 @@
       <div class="card bg-white p-5">
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-lg font-semibold">Histogram — Raw Max Streak (by Session)</h2>
-          <span class="muted text-xs">All submissions (no exclusion)</span>
+          <span class="muted text-xs">Filtered submissions (no ratio exclusion)</span>
         </div>
         <div class="chart-box"><canvas id="rawHist"></canvas></div>
       </div>
@@ -78,18 +115,21 @@
       <div class="card bg-white p-5">
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-lg font-semibold">Histogram — Streak Ratio (by Session)</h2>
-          <span class="muted text-xs">Valid users only (ratio ≤ 1.2 for all sessions)</span>
+          <span class="muted text-xs">Valid users only (ratio ≤ 1.2 for all available sessions)</span>
         </div>
         <div class="chart-box"><canvas id="ratioHist"></canvas></div>
       </div>
 
-      <!-- Line Chart -->
+      <!-- Line Chart OR Message -->
       <div class="card bg-white p-5">
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-lg font-semibold">Trajectory — Streak Ratio per User (S0 → S1 → S2)</h2>
           <span class="muted text-xs">Each user is a faint line; bold line = mean</span>
         </div>
-        <div class="chart-box"><canvas id="lineChart"></canvas></div>
+        <div id="lineMsg" class="hidden text-sm text-slate-600 p-4 bg-slate-50 rounded-lg">
+          Not available for this filter (requires ≥2 sessions with valid data).
+        </div>
+        <div id="lineWrap" class="chart-box"><canvas id="lineChart"></canvas></div>
       </div>
     </section>
 
@@ -99,11 +139,17 @@
         <h2 class="text-lg font-semibold">Paired Significance Tests</h2>
         <span class="muted text-xs">Valid users only (paired)</span>
       </div>
-      <div class="flex flex-wrap gap-3">
+
+      <div id="testsControls" class="flex flex-wrap gap-3">
         <button id="btnS1S0" class="btn">Compare S1 vs S0</button>
         <button id="btnS2S0" class="btn">Compare S2 vs S0</button>
         <button id="btnS2S1" class="btn">Compare S2 vs S1</button>
       </div>
+
+      <div id="testsMsg" class="hidden text-sm text-slate-600 p-3 bg-slate-50 rounded-lg">
+        Not available under current filter (requires ≥2 sessions with valid paired data).
+      </div>
+
       <div id="testOutput" class="mt-4 text-sm"></div>
       <div class="mt-2 text-xs muted">
         Stars: * p &lt; .05, ** p &lt; .01, *** p &lt; .001
@@ -127,70 +173,82 @@
       2: { videoLength: 58, cycleTime: 3.5, maxCycles: 16 }
     };
 
-    // Exclusion threshold for ratio
+    // Ratio exclusion
     const RATIO_CUTOFF = 1.2;
 
-    // State elements
-    const $loading = document.getElementById('loading');
-    const $error   = document.getElementById('error');
-    const $empty   = document.getElementById('empty');
-    const $stateBox= document.getElementById('stateBox');
-    const $charts  = document.getElementById('charts');
-    const $tests   = document.getElementById('tests');
-    const $out     = document.getElementById('testOutput');
+    // DOM
+    const $loading   = document.getElementById('loading');
+    const $error     = document.getElementById('error');
+    const $empty     = document.getElementById('empty');
+    const $stateBox  = document.getElementById('stateBox');
+    const $charts    = document.getElementById('charts');
+    const $tests     = document.getElementById('tests');
+    const $testOut   = document.getElementById('testOutput');
 
-    // Chart handles
-    let rawHistChart = null;
-    let ratioHistChart = null;
-    let lineChart = null;
+    const $sessionFilter = document.getElementById('sessionFilter');
+    const $dateFilter    = document.getElementById('dateFilter');
+    const $applyBtn      = document.getElementById('applyBtn');
+    const $resetBtn      = document.getElementById('resetBtn');
+    const $filterNote    = document.getElementById('filterNote');
 
-    // Fetch and build
-    window.addEventListener('load', async () => {
+    const $lineMsg  = document.getElementById('lineMsg');
+    const $lineWrap = document.getElementById('lineWrap');
+    const $testsMsg = document.getElementById('testsMsg');
+    const $testsControls = document.getElementById('testsControls');
+
+    // Chart refs
+    let rawHistChart = null, ratioHistChart = null, lineChart = null;
+
+    // Data cache
+    let ALL_ROWS = [];      // raw rows from GAS
+    let ALL_DATES = [];     // unique dates
+    let CURRENT_FILTER = { session: 'all', date: 'all' };
+
+    // Init
+    window.addEventListener('load', init);
+
+    async function init() {
       try {
-        const url = `${SCRIPT_URL}?t=${Date.now()}`; // cache-bust
-        const res = await fetch(url);
+        const res = await fetch(`${SCRIPT_URL}?t=${Date.now()}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const rows = await res.json(); // rows: [UserID, Session, MaxStreak, Timestamp, Date]
+        const rows = await res.json(); // [UserID, Session, MaxStreak, Timestamp, Date]
+        if (!Array.isArray(rows) || rows.length === 0) return showEmpty();
 
-        if (!Array.isArray(rows) || rows.length === 0) {
-          showEmpty();
-          return;
-        }
-
-        // Parse rows
-        const parsed = rows.map(r => ({
+        ALL_ROWS = rows.map(r => ({
           userID: String(r[0]).trim(),
           session: Number(r[1]),
-          maxStreak: Number(r[2])
+          maxStreak: Number(r[2]),
+          // timestamp: r[3],  // not used in UI
+          date: String(r[4] || '').trim()
         })).filter(r => r.userID && [0,1,2].includes(r.session) && Number.isFinite(r.maxStreak));
 
-        if (parsed.length === 0) {
-          showEmpty();
-          return;
-        }
+        if (ALL_ROWS.length === 0) return showEmpty();
 
-        // Build datasets
-        const { rawBySession, validUsers, ratioByUser } = prepareDatasets(parsed);
+        // Build date options
+        ALL_DATES = Array.from(new Set(ALL_ROWS.map(r => r.date).filter(Boolean))).sort(dateSortDDMMYYYY);
+        populateDateFilter(ALL_DATES);
 
-        // Render charts
+        // First render with defaults (All/All)
         $stateBox.classList.add('hidden');
         $charts.classList.remove('hidden');
         $tests.classList.remove('hidden');
 
-        renderRawHistogram(rawBySession);
-        renderRatioHistogram(ratioByUser, validUsers);
-        renderLineChart(ratioByUser, validUsers);
+        applyFiltersAndRender();
 
-        // Wire tests
-        document.getElementById('btnS1S0').onclick = () => runPairedTest(ratioByUser, validUsers, 1, 0);
-        document.getElementById('btnS2S0').onclick = () => runPairedTest(ratioByUser, validUsers, 2, 0);
-        document.getElementById('btnS2S1').onclick = () => runPairedTest(ratioByUser, validUsers, 2, 1);
+        // Wire buttons
+        $applyBtn.onclick = () => applyFiltersAndRender();
+        $resetBtn.onclick = () => {
+          $sessionFilter.value = 'all';
+          $dateFilter.value = 'all';
+          CURRENT_FILTER = { session: 'all', date: 'all' };
+          applyFiltersAndRender();
+        };
 
-      } catch (err) {
-        console.error(err);
+      } catch (e) {
+        console.error(e);
         showError();
       }
-    });
+    }
 
     function showEmpty() {
       $loading.classList.add('hidden');
@@ -203,53 +261,160 @@
       $error.classList.remove('hidden');
     }
 
-    // ---- Data prep ----
-    function prepareDatasets(parsedRows) {
-      // Raw maxStreak by session (1..20 bins)
-      const rawBySession = { 0: [], 1: [], 2: [] };
-      parsedRows.forEach(r => {
-        rawBySession[r.session].push(r.maxStreak);
+    // Populate date dropdown (keep "All Days" as first option)
+    function populateDateFilter(dates) {
+      while ($dateFilter.options.length > 1) $dateFilter.remove(1);
+      dates.forEach(d => {
+        const opt = document.createElement('option');
+        opt.value = d;
+        opt.textContent = d;
+        $dateFilter.appendChild(opt);
+      });
+    }
+
+    // Main filter + render
+    function applyFiltersAndRender() {
+      CURRENT_FILTER.session = $sessionFilter.value; // 'all' | '0'|'1'|'2'
+      CURRENT_FILTER.date    = $dateFilter.value;    // 'all' | 'dd/MM/yyyy'
+
+      // Subset rows by filter
+      const subset = ALL_ROWS.filter(r => {
+        const okSession = (CURRENT_FILTER.session === 'all') ? true : String(r.session) === CURRENT_FILTER.session;
+        const okDate    = (CURRENT_FILTER.date === 'all') ? true : r.date === CURRENT_FILTER.date;
+        return okSession && okDate;
       });
 
-      // Group by userID → { 0: maxStreak?, 1: ?, 2: ? }
-      const byUser = {};
-      for (const r of parsedRows) {
-        if (!byUser[r.userID]) byUser[r.userID] = {};
-        byUser[r.userID][r.session] = r.maxStreak;
+      // Update filter note
+      const sTxt = (CURRENT_FILTER.session === 'all') ? 'All Sessions' : `Session ${CURRENT_FILTER.session}`;
+      const dTxt = (CURRENT_FILTER.date === 'all') ? 'All Days' : CURRENT_FILTER.date;
+      $filterNote.textContent = `Current filter → Session: ${sTxt} | Date: ${dTxt}`;
+
+      if (subset.length === 0) {
+        // Clear charts + show "no data"
+        destroyCharts();
+        renderNoDataState();
+        return;
       }
 
-      // Compute ratios per user, and filter valid users
-      const ratioByUser = {}; // userID -> {0:ratio?,1:?,2:?}
+      // Build raw-by-session (for the raw histogram)
+      const rawBySession = { 0: [], 1: [], 2: [] };
+      subset.forEach(r => rawBySession[r.session].push(r.maxStreak));
+
+      // Build ratios & valid users for ratio-based charts/test
+      const { validUsers, ratioByUser } = buildRatiosAndValidUsers(subset);
+
+      // Determine how many sessions are effectively present among valid users
+      const sessionsPresent = sessionCoverage(ratioByUser, validUsers); // set like {0:true,1:true,...}
+      const nSessionsPresent = Object.keys(sessionsPresent).length;
+
+      // Render Raw Histogram (always)
+      renderRawHistogram(rawBySession);
+
+      // Render Ratio Histogram (valid users only)
+      if (validUsers.length === 0) {
+        destroyRatioHist();
+        // show empty ratio hist
+        renderEmptyRatioHistogram();
+      } else {
+        renderRatioHistogram(ratioByUser, validUsers);
+      }
+
+      // Line chart + Tests availability
+      const canPaired = nSessionsPresent >= 2 && validUsers.length >= 3;
+
+      if (nSessionsPresent < 2 || validUsers.length === 0) {
+        // Show info messages instead of charts/tests
+        destroyLineChart();
+        $lineMsg.classList.remove('hidden');
+        $lineWrap.classList.add('hidden');
+
+        $testsControls.classList.add('hidden');
+        $testsMsg.classList.remove('hidden');
+        $testOut.innerHTML = '';
+      } else {
+        // Render line chart + enable tests
+        $lineMsg.classList.add('hidden');
+        $lineWrap.classList.remove('hidden');
+        renderLineChart(ratioByUser, validUsers);
+
+        $testsControls.classList.remove('hidden');
+        $testsMsg.classList.add('hidden');
+
+        // Wire tests
+        document.getElementById('btnS1S0').onclick = () => runPairedTest(ratioByUser, validUsers, 1, 0);
+        document.getElementById('btnS2S0').onclick = () => runPairedTest(ratioByUser, validUsers, 2, 0);
+        document.getElementById('btnS2S1').onclick = () => runPairedTest(ratioByUser, validUsers, 2, 1);
+        $testOut.innerHTML = '';
+      }
+    }
+
+    function renderNoDataState() {
+      // Destroy all charts and show helpful notes
+      destroyCharts();
+      const ctx1 = document.getElementById('rawHist').getContext('2d');
+      rawHistChart = new Chart(ctx1, { type:'bar', data:{labels:[],datasets:[]}, options:{plugins:{title:{display:true,text:'No data for current filter'}}}});
+      const ctx2 = document.getElementById('ratioHist').getContext('2d');
+      ratioHistChart = new Chart(ctx2, { type:'bar', data:{labels:[],datasets:[]}, options:{plugins:{title:{display:true,text:'No valid users for current filter'}}}});
+      destroyLineChart();
+      $lineMsg.classList.remove('hidden');
+      $lineWrap.classList.add('hidden');
+      $testsControls.classList.add('hidden');
+      $testsMsg.classList.remove('hidden');
+      $testOut.innerHTML = '';
+    }
+
+    function buildRatiosAndValidUsers(rowsSubset) {
+      // Group by user
+      const byUser = {};
+      rowsSubset.forEach(r => {
+        if (!byUser[r.userID]) byUser[r.userID] = {};
+        byUser[r.userID][r.session] = r.maxStreak;
+      });
+
+      // Compute ratios; exclude user if any ratio > cutoff
+      const ratioByUser = {};
       const validUsers = [];
       for (const uid of Object.keys(byUser)) {
-        const sessions = byUser[uid];
+        const map = byUser[uid];
         let invalid = false;
         const ratios = {};
-        for (const s of [0,1,2]) {
-          if (sessions[s] != null) {
-            const maxCycles = SESSION_CYCLE_CONFIG[s].maxCycles;
-            const ratio = sessions[s] / maxCycles;
+        [0,1,2].forEach(s => {
+          if (map[s] != null) {
+            const ratio = map[s] / SESSION_CYCLE_CONFIG[s].maxCycles;
             ratios[s] = ratio;
             if (ratio > RATIO_CUTOFF) invalid = true;
           }
-        }
+        });
         if (!invalid) {
           ratioByUser[uid] = ratios;
           validUsers.push(uid);
         }
       }
-      return { rawBySession, validUsers, ratioByUser };
+      return { validUsers, ratioByUser };
     }
 
-    // ---- Charts ----
-    function destroyIfExists(chartRef) {
-      if (chartRef && typeof chartRef.destroy === 'function') chartRef.destroy();
+    function sessionCoverage(ratioByUser, validUsers) {
+      const present = {};
+      [0,1,2].forEach(s => {
+        for (const uid of validUsers) {
+          const v = ratioByUser[uid] && ratioByUser[uid][s];
+          if (typeof v === 'number' && isFinite(v)) { present[s] = true; break; }
+        }
+      });
+      return present;
     }
+
+    // ---- CHART RENDERERS ----
+    function destroyCharts() {
+      destroyRawHist(); destroyRatioHist(); destroyLineChart();
+    }
+    function destroyRawHist(){ if (rawHistChart) { rawHistChart.destroy(); rawHistChart = null; } }
+    function destroyRatioHist(){ if (ratioHistChart) { ratioHistChart.destroy(); ratioHistChart = null; } }
+    function destroyLineChart(){ if (lineChart) { lineChart.destroy(); lineChart = null; } }
 
     function renderRawHistogram(rawBySession) {
-      destroyIfExists(rawHistChart);
+      destroyRawHist();
 
-      // Build counts 1..20 per session
       const labels = Array.from({length: 20}, (_, i) => String(i+1));
       const colors = [
         'rgba(59,130,246,0.6)',  // S0 blue
@@ -281,8 +446,7 @@
         type: 'bar',
         data: { labels, datasets },
         options: {
-          responsive: true,
-          maintainAspectRatio: false,
+          responsive: true, maintainAspectRatio: false,
           scales: {
             x: { title: { display: true, text: 'Max Streak (raw count)' } },
             y: { beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'Number of respondents' } }
@@ -292,20 +456,20 @@
     }
 
     function renderRatioHistogram(ratioByUser, validUsers) {
-      destroyIfExists(ratioHistChart);
+      destroyRatioHist();
 
-      // Collect ratios by session from valid users
+      // Collect ratios by session
       const perSession = { 0: [], 1: [], 2: [] };
       for (const uid of validUsers) {
         const rmap = ratioByUser[uid];
-        for (const s of [0,1,2]) {
-          if (typeof rmap[s] === 'number' && isFinite(rmap[s])) perSession[s].push(rmap[s]);
-        }
+        [0,1,2].forEach(s => {
+          const v = rmap[s];
+          if (typeof v === 'number' && isFinite(v)) perSession[s].push(v);
+        });
       }
 
-      // Bins from 0.0..1.2 step 0.1
-      const edges = [];
-      for (let b = 0; b <= 12; b++) edges.push(b/10); // [0, 0.1, ..., 1.2]
+      // Bins 0.0 .. 1.2
+      const edges = []; for (let b=0; b<=12; b++) edges.push(b/10);
       const labels = edges.map(v => v.toFixed(1));
       const colors = [
         'rgba(59,130,246,0.6)',
@@ -341,8 +505,7 @@
         type: 'bar',
         data: { labels, datasets },
         options: {
-          responsive: true,
-          maintainAspectRatio: false,
+          responsive: true, maintainAspectRatio: false,
           scales: {
             x: { title: { display: true, text: 'Streak Ratio (MaxStreak / maxCycles)' } },
             y: { beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'Number of respondents' } }
@@ -351,17 +514,29 @@
       });
     }
 
+    function renderEmptyRatioHistogram() {
+      destroyRatioHist();
+      const ctx = document.getElementById('ratioHist').getContext('2d');
+      ratioHistChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: [], datasets: [] },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { title: { display: true, text: 'No valid users for current filter' } }
+        }
+      });
+    }
+
     function renderLineChart(ratioByUser, validUsers) {
-      destroyIfExists(lineChart);
+      destroyLineChart();
 
       const labels = ['S0','S1','S2'];
-
-      // Build each user line (ensure we place NaN if missing)
       const userDatasets = [];
+
+      // user lines
       for (const uid of validUsers) {
         const rmap = ratioByUser[uid] || {};
         const arr = [0,1,2].map(s => (typeof rmap[s] === 'number' ? rmap[s] : NaN));
-        // Skip if all missing
         if (arr.every(x => isNaN(x))) continue;
         userDatasets.push({
           label: uid,
@@ -369,13 +544,13 @@
           borderWidth: 1,
           pointRadius: 0,
           tension: 0.25,
-          borderColor: 'rgba(100,116,139,0.35)', // slate-500 @ ~0.35
+          borderColor: 'rgba(100,116,139,0.35)', // slate-500 ~0.35
           backgroundColor: 'rgba(100,116,139,0.15)',
-          spanGaps: false, // do not connect across missing sessions
+          spanGaps: false
         });
       }
 
-      // Mean line (bold)
+      // mean line
       const means = [0,1,2].map(s => {
         const vals = [];
         for (const uid of validUsers) {
@@ -390,7 +565,7 @@
         borderWidth: 3,
         pointRadius: 3,
         tension: 0.2,
-        borderColor: 'rgba(37,99,235,1)',     // blue-600
+        borderColor: 'rgba(37,99,235,1)',
         backgroundColor: 'rgba(37,99,235,0.15)'
       });
 
@@ -403,26 +578,18 @@
           maintainAspectRatio: false,
           interaction: { intersect: false, mode: 'nearest' },
           scales: {
-            y: {
-              beginAtZero: true,
-              suggestedMax: 1.2,
-              title: { display: true, text: 'Streak Ratio' }
-            },
+            y: { beginAtZero: true, suggestedMax: 1.2, title: { display: true, text: 'Streak Ratio' } },
             x: { title: { display: true, text: 'Session' } }
           },
           plugins: {
-            legend: {
-              display: true,
-              labels: { filter: item => item.text === 'Mean' } // only show Mean in legend
-            }
+            legend: { display: true, labels: { filter: (it) => it.text === 'Mean' } }
           }
         }
       });
     }
 
-    // ---- Paired tests ----
+    // ---- Tests ----
     function runPairedTest(ratioByUser, validUsers, sA, sB) {
-      // Collect paired ratios for users who have both sessions
       const A = [], B = [];
       for (const uid of validUsers) {
         const rmap = ratioByUser[uid] || {};
@@ -432,7 +599,7 @@
         }
       }
       if (A.length < 3) {
-        $out.innerHTML = `<div class="text-slate-600">Not enough paired data for S${sA} vs S${sB}.</div>`;
+        $testOut.innerHTML = `<div class="text-slate-600">Not enough paired data for S${sA} vs S${sB}.</div>`;
         return;
       }
 
@@ -442,11 +609,10 @@
       const sd = Math.sqrt(diffs.reduce((s,x)=> s + Math.pow(x-mean,2), 0)/(n-1));
       const t = mean / (sd / Math.sqrt(n));
       const df = n - 1;
-      // two-tailed p using jStat
-      const p = 2 * (1 - jStat.studentt.cdf(Math.abs(t), df));
+      const p = 2 * (1 - jStat.studentt.cdf(Math.abs(t), df)); // two-tailed
       const stars = pStars(p);
 
-      $out.innerHTML = `
+      $testOut.innerHTML = `
         <div class="bg-slate-50 rounded-lg p-3">
           <div><span class="font-semibold">S${sA} vs S${sB}</span> (paired t-test)</div>
           <div class="text-sm mt-1 code">n = ${n}, meanΔ = ${mean.toFixed(3)}, t(${df}) = ${t.toFixed(3)}, p = ${fmtP(p)} ${stars}</div>
@@ -463,6 +629,16 @@
     function fmtP(p) {
       if (p < 0.0001) return '&lt; 1e-4';
       return p.toFixed(4);
+    }
+
+    // ---- Utils ----
+    function dateSortDDMMYYYY(a, b) {
+      // Parse dd/MM/yyyy into yyyymmdd numeric
+      const pa = a.split('/'); const pb = b.split('/');
+      if (pa.length !== 3 || pb.length !== 3) return a.localeCompare(b);
+      const na = Number(pa[2])*10000 + Number(pa[1])*100 + Number(pa[0]);
+      const nb = Number(pb[2])*10000 + Number(pb[1])*100 + Number(pb[0]);
+      return na - nb;
     }
   </script>
 </body>
