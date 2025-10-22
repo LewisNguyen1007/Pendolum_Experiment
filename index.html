@@ -1,138 +1,153 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Pendulum Experiment</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body { font-family: 'Inter', sans-serif; }
-    button:disabled { cursor: not-allowed; opacity: 0.6; }
-  </style>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pendulum Attention Experiment – Response Form</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+    </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
 
-  <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
-    <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">Oscillation Count Experiment</h1>
+    <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
+        <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">
+            Pendulum Attention Experiment
+        </h1>
 
-    <p class="text-gray-600 text-center mb-6">
-      Please select the number of oscillations you counted and which viewing session you are answering for.
-    </p>
+        <p class="text-gray-600 mb-6 text-sm leading-relaxed">
+            After watching the video for the current session, please enter the 
+            <strong>highest number of consecutive oscillations (Max Streak)</strong> 
+            you were able to count before losing track and restarting from one.
+        </p>
 
-    <form id="answerForm" class="space-y-6">
-      <div>
-        <label for="countSelect" class="block text-sm font-medium text-gray-700 mb-2">
-          Number of oscillations counted:
-        </label>
-        <select id="countSelect" name="answer"
-                class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-        </select>
-      </div>
+        <form id="responseForm" class="space-y-6">
+            <!-- Session Selection -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Select Session:</label>
+                <div class="space-y-2">
+                    <label class="flex items-center cursor-pointer">
+                        <input type="radio" name="session" value="0" class="mr-2" checked>
+                        Session 0 (24s – 3s/cycle)
+                    </label>
+                    <label class="flex items-center cursor-pointer">
+                        <input type="radio" name="session" value="1" class="mr-2">
+                        Session 1 (58s – 4s/cycle)
+                    </label>
+                    <label class="flex items-center cursor-pointer">
+                        <input type="radio" name="session" value="2" class="mr-2">
+                        Session 2 (58s – 3.5s/cycle, with distraction)
+                    </label>
+                </div>
+            </div>
 
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2">Submission session:</label>
-        <div class="flex items-center space-x-6">
-          <label for="session1" class="flex items-center p-3 rounded-lg border border-gray-300 has-[:checked]:bg-blue-50 has-[:checked]:border-blue-500 cursor-pointer">
-            <input type="radio" id="session1" name="session" value="1"
-                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300" checked>
-            <span class="ml-3 text-gray-700">Session 1</span>
-          </label>
-          <label for="session2" class="flex items-center p-3 rounded-lg border border-gray-300 has-[:checked]:bg-blue-50 has-[:checked]:border-blue-500 cursor-pointer">
-            <input type="radio" id="session2" name="session" value="2"
-                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300">
-            <span class="ml-3 text-gray-700">Session 2</span>
-          </label>
-        </div>
-      </div>
+            <!-- Max Streak Selection -->
+            <div>
+                <label for="maxStreak" class="block text-sm font-medium text-gray-700 mb-2">
+                    Max Streak (1–20):
+                </label>
+                <select 
+                    id="maxStreak" 
+                    name="maxStreak" 
+                    class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                    <option value="">-- Select a number --</option>
+                </select>
+            </div>
 
-      <button type="submit" id="submitButton"
-              class="w-full bg-blue-600 text-white p-3 rounded-lg font-semibold shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors duration-200">
-        Submit
-      </button>
-    </form>
+            <!-- Submit Button -->
+            <button 
+                type="submit" 
+                id="submitBtn" 
+                class="w-full bg-blue-600 text-white p-3 rounded-lg font-semibold shadow-md hover:bg-blue-700 transition"
+            >
+                Submit Response
+            </button>
+        </form>
 
-    <div id="message" class="mt-6 text-center text-sm font-medium"></div>
-  </div>
+        <!-- Status message -->
+        <div id="statusMessage" class="mt-6 text-center text-sm font-medium"></div>
+    </div>
 
-  <script>
-    // URL Web App (đã deploy, quyền: Anyone, /exec)
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxBu-y0zNvyBVdYFnt30vEwhvARMVYwoVmwDbxPtxwqZxzLjxiky4YFkRgpvZF9che6/exec";
+    <script>
+        // TODO: Replace with your actual Apps Script URL
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzuw5IezdEavu7NrQfAYu_1asHO-27lBXVhv550bLgjY63R8SJJMYAWaBKNoyFnu7RH/exec";
 
-    const countSelect   = document.getElementById('countSelect');
-    const answerForm    = document.getElementById('answerForm');
-    const submitButton  = document.getElementById('submitButton');
-    const message       = document.getElementById('message');
+        const maxStreakSelect = document.getElementById('maxStreak');
+        const responseForm = document.getElementById('responseForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const statusMessage = document.getElementById('statusMessage');
 
-    function getUserID() {
-      const now = Date.now();
-      const ttl = 10 * 60 * 1000;
-      const id  = localStorage.getItem('pendulumUserID');
-      const ts  = parseInt(localStorage.getItem('pendulumUserTimestamp') || '0', 10);
-
-      if (id && now - ts < ttl) return id;
-
-      const newID = (crypto && crypto.randomUUID) ? crypto.randomUUID() : String(now) + Math.random().toString(16).slice(2);
-      localStorage.setItem('pendulumUserID', newID);
-      localStorage.setItem('pendulumUserTimestamp', String(now));
-      return newID;
-    }
-
-    function populateCountOptions() {
-      for (let i = 1; i <= 30; i++) {
-        const op = document.createElement('option');
-        op.value = i;
-        op.textContent = i;
-        countSelect.appendChild(op);
-      }
-    }
-
-    async function handleSubmit(e) {
-      e.preventDefault();
-      submitButton.disabled = true;
-      message.textContent = "Submitting answer...";
-      message.className = "mt-6 text-center text-sm font-medium text-blue-600";
-
-      const userID  = getUserID();
-      const answer  = countSelect.value;
-      const session = document.querySelector('input[name="session"]:checked').value;
-
-      // Dùng FormData để tránh preflight CORS
-      const form = new FormData();
-      form.append('userID',  userID);
-      form.append('answer',  answer);
-      form.append('session', session);
-
-      try {
-        const res = await fetch(SCRIPT_URL, { method: 'POST', body: form });
-        if (!res.ok) throw new Error(`Server returned ${res.status}`);
-
-        // GAS trả JSON
-        const result = await res.json();
-        if (result.status === 'success') {
-          message.textContent = "Submission successful! Thank you.";
-          message.className = "mt-6 text-center text-sm font-medium text-green-600";
-        } else {
-          throw new Error(result.message || 'Unknown error');
+        // Populate MaxStreak options (1–20)
+        for (let i = 1; i <= 20; i++) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.textContent = i;
+            maxStreakSelect.appendChild(option);
         }
-      } catch (err) {
-        console.error(err);
-        message.textContent = "Submission failed. Please try again.";
-        message.className = "mt-6 text-center text-sm font-medium text-red-600";
-      } finally {
-        setTimeout(() => {
-          submitButton.disabled = false;
-          // Giữ message thêm vài giây nếu bạn muốn, hoặc xóa:
-          // message.textContent = "";
-        }, 1500);
-      }
-    }
 
-    window.onload = () => {
-      populateCountOptions();
-      getUserID();
-      answerForm.addEventListener('submit', handleSubmit);
-    };
-  </script>
+        // Generate or reuse a UserID with TTL of 15 minutes
+        function getUserID() {
+            const now = Date.now();
+            const ttl = 15 * 60 * 1000; // 15 minutes
+            const storedID = localStorage.getItem('pendulumUserID');
+            const timestamp = localStorage.getItem('pendulumUserTimestamp');
+
+            if (storedID && timestamp && (now - parseInt(timestamp)) < ttl) {
+                return storedID;
+            } else {
+                const newID = crypto.randomUUID();
+                localStorage.setItem('pendulumUserID', newID);
+                localStorage.setItem('pendulumUserTimestamp', now.toString());
+                return newID;
+            }
+        }
+
+        responseForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const userID = getUserID();
+            const session = document.querySelector('input[name="session"]:checked').value;
+            const maxStreak = maxStreakSelect.value;
+
+            if (!maxStreak) {
+                alert("Please select a Max Streak value before submitting.");
+                return;
+            }
+
+            submitBtn.disabled = true;
+            statusMessage.textContent = "Submitting response...";
+            statusMessage.className = "mt-6 text-center text-sm font-medium text-blue-600";
+
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ userID, session, maxStreak })
+                });
+
+                if (response.ok) {
+                    statusMessage.textContent = "✅ Submitted successfully! You may close this page or proceed to the next session.";
+                    statusMessage.className = "mt-6 text-center text-sm font-medium text-green-600";
+                    maxStreakSelect.value = ""; // Reset MaxStreak for next entry
+                } else {
+                    throw new Error("Server error");
+                }
+            } catch (error) {
+                statusMessage.textContent = "❌ Submission failed. Please try again.";
+                statusMessage.className = "mt-6 text-center text-sm font-medium text-red-600";
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+
 </body>
 </html>
