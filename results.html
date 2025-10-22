@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Cập nhật tiêu đề -->
+    <title>Experiment Results</title>
+    <!-- Tải Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tải Chart.js để vẽ biểu đồ -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen p-4 md:p-8">
+
+    <div class="bg-white p-6 md:p-8 rounded-lg shadow-xl w-full max-w-4xl mx-auto">
+        <!-- Cập nhật H1 -->
+        <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">Experiment Results</h1>
+
+        <!-- Vùng Lọc -->
+        <div class="flex flex-col md:flex-row gap-4 mb-6">
+            <!-- Lọc theo Ngày -->
+            <div class="flex-1">
+                <!-- Cập nhật nhãn -->
+                <label for="dateFilter" class="block text-sm font-medium text-gray-700 mb-2">Select date:</label>
+                <select id="dateFilter" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <!-- Cập nhật tùy chọn -->
+                    <option value="all">All dates</option>
+                    <!-- Tùy chọn ngày sẽ được thêm bằng JavaScript -->
+                </select>
+            </div>
+            <!-- Lọc theo Lần xem -->
+            <div class="flex-1">
+                <!-- Cập nhật nhãn -->
+                <label for="sessionFilter" class="block text-sm font-medium text-gray-700 mb-2">Select session:</label>
+                <select id="sessionFilter" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <!-- Cập nhật tùy chọn -->
+                    <option value="1">Session 1</option>
+                    <option value="2">Session 2</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Thông báo tải -->
+        <!-- Cập nhật thông báo -->
+        <div id="loadingMessage" class="text-center text-gray-600 p-8">Loading data...</div>
+
+        <!-- Biểu đồ Histogram -->
+        <div class="w-full">
+            <canvas id="histogramChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // !!! URL ĐÃ ĐƯỢC CẬP NHẬT !!!
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyHi2rrrbYB1BSg3VhKeS53wqVbcA4DkJEF3guTKXZi_YP3p0BAzRxJXnOxMcYeOo7t/exec";
+
+        const dateFilter = document.getElementById('dateFilter');
+        const sessionFilter = document.getElementById('sessionFilter');
+        const loadingMessage = document.getElementById('loadingMessage');
+        const chartCanvas = document.getElementById('histogramChart');
+        
+        let allData = []; // Biến lưu trữ toàn bộ dữ liệu
+        let myChart; // Biến lưu trữ đối tượng biểu đồ
+
+        // Chỉ số các cột trong dữ liệu trả về (0-indexed)
+        const COL_ANSWER = 1;
+        const COL_SESSION = 2;
+        const COL_DATE = 4;
+
+        /**
+         * Tải dữ liệu từ Google Apps Script (qua hàm doGet).
+         */
+        async function fetchData() {
+            try {
+                const response = await fetch(SCRIPT_URL); // Mặc định là GET
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                
+                if (data && Array.isArray(data)) {
+                    allData = data;
+                    populateDateFilter(); // Điền bộ lọc ngày
+                    updateChart(); // Vẽ biểu đồ lần đầu
+                    loadingMessage.style.display = 'none'; // Ẩn thông báo tải
+                    chartCanvas.style.display = 'block';
+                } else {
+                    // Cập nhật thông báo lỗi
+                    throw new Error("Invalid data returned.");
+                }
+
+            } catch (error) {
+                console.error("Error loading data:", error);
+                // Cập nhật thông báo lỗi
+                loadingMessage.textContent = "Could not load data. Please check the Script URL.";
+                loadingMessage.className = "text-center text-red-600 p-8";
+            }
+        }
+
+        /**
+         * Điền các ngày duy nhất vào bộ lọc ngày.
+         */
+        function populateDateFilter() {
+            // Lấy tất cả các ngày duy nhất từ cột 'Date' (COL_DATE)
+            const dates = [...new Set(allData.map(row => row[COL_DATE]))];
+            
+            // Sắp xếp ngày (nếu cần, nhưng ở đây chỉ là chuỗi)
+            dates.sort(); 
+            
+            // Xóa các tùy chọn cũ (trừ "Tất cả các ngày")
+            while (dateFilter.options.length > 1) {
+                dateFilter.remove(1);
+            }
+
+            // Thêm các ngày vào dropdown
+            dates.forEach(date => {
+                if (date) { // Bỏ qua các hàng rỗng
+                    const option = document.createElement('option');
+                    option.value = date;
+                    option.textContent = date;
+                    dateFilter.appendChild(option);
+                }
+            });
+        }
+
+        /**
+         * Cập nhật biểu đồ dựa trên các bộ lọc.
+         */
+        function updateChart() {
+            const selectedDate = dateFilter.value;
+            const selectedSession = sessionFilter.value;
+
+            // Lọc dữ liệu
+            const filteredData = allData.filter(row => {
+                const dateMatch = (selectedDate === 'all' || row[COL_DATE] === selectedDate);
+                const sessionMatch = (row[COL_SESSION] == selectedSession);
+                return dateMatch && sessionMatch;
+            });
+
+            // Đếm số lần xuất hiện của mỗi câu trả lời (từ 1 đến 30)
+            const counts = new Array(30).fill(0);
+            filteredData.forEach(row => {
+                const answer = parseInt(row[COL_ANSWER]);
+                if (answer >= 1 && answer <= 30) {
+                    counts[answer - 1]++; // (vd: trả lời 1 -> index 0)
+                }
+            });
+
+            // Chuẩn bị dữ liệu cho Chart.js
+            const labels = Array.from({ length: 30 }, (_, i) => (i + 1).toString()); // ["1", "2", ..., "30"]
+            const chartData = {
+                labels: labels,
+                datasets: [{
+                    // Cập nhật nhãn
+                    label: `Number of answers (Session ${selectedSession} - Date ${selectedDate === 'all' ? 'All' : selectedDate})`,
+                    data: counts,
+                    backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                }]
+            };
+
+            // Hủy biểu đồ cũ nếu tồn tại
+            if (myChart) {
+                myChart.destroy();
+            }
+
+            // Vẽ biểu đồ mới
+            const ctx = chartCanvas.getContext('2d');
+            myChart = new Chart(ctx, {
+                type: 'bar', // Kiểu biểu đồ cột (histogram)
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                // Cập nhật tiêu đề trục Y
+                                text: 'Number of respondents'
+                            },
+                            ticks: {
+                                // Chỉ hiển thị số nguyên trên trục Y
+                                stepSize: 1 
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                // Cập nhật tiêu đề trục X
+                                text: 'Answer value (number of oscillations)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                        }
+                    }
+                }
+            });
+        }
+
+        // Khởi tạo
+        window.onload = () => {
+            chartCanvas.style.display = 'none'; // Aan biểu đồ khi chưa tải xong
+            fetchData(); // Bắt đầu tải dữ liệu
+
+            // Thêm sự kiện lắng nghe cho các bộ lọc
+            dateFilter.addEventListener('change', updateChart);
+            sessionFilter.addEventListener('change', updateChart);
+        };
+    </script>
+</body>
+</html>
+
