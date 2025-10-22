@@ -1,189 +1,469 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Experiment Results</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Pendulum Attention Experiment – Results Dashboard</title>
+
+  <!-- Tailwind for quick layout -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Chart.js v4 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- jStat for t-test p-values -->
+  <script src="https://cdn.jsdelivr.net/npm/jstat@1.9.6/dist/jstat.min.js"></script>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Inter', sans-serif; }
-    /* Đảm bảo khu vực chart luôn có chiều cao để Chart.js render ổn định */
-    #chartWrap { height: 420px; }
+    body { font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    .card { border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.06); }
+    .chart-box { height: 420px; }
+    .muted { color: #64748b; }
+    .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; background:#eef2ff; color:#3730a3; }
+    .btn { padding: 10px 14px; border-radius: 10px; background:#1d4ed8; color:#fff; font-weight:600; }
+    .btn:hover { background:#1e40af; }
+    .btn-secondary { background:#0f766e; }
+    .btn-secondary:hover { background:#115e59; }
+    .pill { border-radius: 999px; background:#f1f5f9; padding:2px 10px; font-size:12px; }
+    .code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
   </style>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
-<body class="bg-gray-100 min-h-screen p-4 md:p-8">
-  <div class="bg-white p-6 md:p-8 rounded-lg shadow-xl w-full max-w-4xl mx-auto">
-    <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">Experiment Results</h1>
+<body class="bg-slate-50 min-h-screen p-4 md:p-8">
 
-    <!-- Filters -->
-    <div class="flex flex-col md:flex-row gap-4 mb-6">
-      <div class="flex-1">
-        <label for="dateFilter" class="block text-sm font-medium text-gray-700 mb-2">Select date:</label>
-        <select id="dateFilter" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option value="all">All dates</option>
-        </select>
+  <div class="max-w-6xl mx-auto space-y-6">
+    <header class="flex items-start justify-between gap-4">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-bold text-slate-900">Pendulum Attention Experiment – Results</h1>
+        <p class="muted mt-1 text-sm">
+          Session config is encoded below. Raw counts use all submissions. Ratio-based charts & tests
+          <span class="code">exclude users with any ratio &gt; 1.2</span>.
+        </p>
+      </div>
+      <div class="text-right">
+        <div class="badge">Dashboard</div>
+        <div class="mt-1 text-xs text-slate-500">Auto-refresh on reload</div>
+      </div>
+    </header>
+
+    <!-- Session config display -->
+    <section class="card bg-white p-5">
+      <div class="flex flex-wrap gap-3 items-center">
+        <div class="pill">Session 0: <span class="code">24s</span>, cycle <span class="code">3.0s</span>, maxCycles=<span class="code">8</span></div>
+        <div class="pill">Session 1: <span class="code">58s</span>, cycle <span class="code">4.0s</span>, maxCycles=<span class="code">14</span></div>
+        <div class="pill">Session 2: <span class="code">58s</span>, cycle <span class="code">3.5s</span>, maxCycles=<span class="code">16</span></div>
+        <div class="pill">Exclusion: ratio &gt; 1.2 (drop entire user)</div>
+      </div>
+    </section>
+
+    <!-- Loading / Error / Empty -->
+    <section id="stateBox" class="card bg-white p-6">
+      <div id="loading" class="text-center">
+        <div class="text-slate-600">Loading data…</div>
+      </div>
+      <div id="error" class="hidden text-center text-red-600 font-medium">Failed to load data. Check Script URL & permissions.</div>
+      <div id="empty" class="hidden text-center text-slate-600">No data yet.</div>
+    </section>
+
+    <!-- Charts -->
+    <section id="charts" class="hidden space-y-6">
+      <!-- Raw Histogram -->
+      <div class="card bg-white p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-semibold">Histogram — Raw Max Streak (by Session)</h2>
+          <span class="muted text-xs">All submissions (no exclusion)</span>
+        </div>
+        <div class="chart-box"><canvas id="rawHist"></canvas></div>
       </div>
 
-      <div class="flex-1">
-        <label for="sessionFilter" class="block text-sm font-medium text-gray-700 mb-2">Select session:</label>
-        <select id="sessionFilter" class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-          <option value="1">Session 1</option>
-          <option value="2">Session 2</option>
-        </select>
+      <!-- Ratio Histogram -->
+      <div class="card bg-white p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-semibold">Histogram — Streak Ratio (by Session)</h2>
+          <span class="muted text-xs">Valid users only (ratio ≤ 1.2 for all sessions)</span>
+        </div>
+        <div class="chart-box"><canvas id="ratioHist"></canvas></div>
       </div>
-    </div>
 
-    <div id="loadingMessage" class="text-center text-gray-600 p-8">Loading data...</div>
+      <!-- Line Chart -->
+      <div class="card bg-white p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-semibold">Trajectory — Streak Ratio per User (S0 → S1 → S2)</h2>
+          <span class="muted text-xs">Each user is a faint line; bold line = mean</span>
+        </div>
+        <div class="chart-box"><canvas id="lineChart"></canvas></div>
+      </div>
+    </section>
 
-    <div id="chartWrap" class="w-full">
-      <!-- canvas sẽ được tạo lại mỗi lần update -->
-      <canvas id="histogramChart"></canvas>
-    </div>
+    <!-- Significance tests -->
+    <section id="tests" class="hidden card bg-white p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold">Paired Significance Tests</h2>
+        <span class="muted text-xs">Valid users only (paired)</span>
+      </div>
+      <div class="flex flex-wrap gap-3">
+        <button id="btnS1S0" class="btn">Compare S1 vs S0</button>
+        <button id="btnS2S0" class="btn">Compare S2 vs S0</button>
+        <button id="btnS2S1" class="btn">Compare S2 vs S1</button>
+      </div>
+      <div id="testOutput" class="mt-4 text-sm"></div>
+      <div class="mt-2 text-xs muted">
+        Stars: * p &lt; .05, ** p &lt; .01, *** p &lt; .001
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="text-center muted text-xs pt-4">
+      Data source: Google Apps Script Web App (GET JSON). Refresh the page to fetch the latest rows.
+    </footer>
   </div>
 
   <script>
-    // URL Web App mới của bạn
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxBu-y0zNvyBVdYFnt30vEwhvARMVYwoVmwDbxPtxwqZxzLjxiky4YFkRgpvZF9che6/exec";
+    // === CONFIG ===
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzuw5IezdEavu7NrQfAYu_1asHO-27lBXVhv550bLgjY63R8SJJMYAWaBKNoyFnu7RH/exec";
 
-    const dateFilter     = document.getElementById('dateFilter');
-    const sessionFilter  = document.getElementById('sessionFilter');
-    const loadingMessage = document.getElementById('loadingMessage');
-    const chartWrap      = document.getElementById('chartWrap');
+    // Session → videoLength, cycleTime, maxCycles
+    const SESSION_CYCLE_CONFIG = {
+      0: { videoLength: 24, cycleTime: 3.0, maxCycles: 8  },
+      1: { videoLength: 58, cycleTime: 4.0, maxCycles: 14 },
+      2: { videoLength: 58, cycleTime: 3.5, maxCycles: 16 }
+    };
 
-    let allData  = [];
-    let dataReady = false;
+    // Exclusion threshold for ratio
+    const RATIO_CUTOFF = 1.2;
 
-    // Cột (0-indexed) theo Code.gs: [UserID, Answer, Session, Timestamp, Date]
-    const COL_ANSWER  = 1;
-    const COL_SESSION = 2;
-    const COL_DATE    = 4;
+    // State elements
+    const $loading = document.getElementById('loading');
+    const $error   = document.getElementById('error');
+    const $empty   = document.getElementById('empty');
+    const $stateBox= document.getElementById('stateBox');
+    const $charts  = document.getElementById('charts');
+    const $tests   = document.getElementById('tests');
+    const $out     = document.getElementById('testOutput');
 
-    async function fetchData() {
+    // Chart handles
+    let rawHistChart = null;
+    let ratioHistChart = null;
+    let lineChart = null;
+
+    // Fetch and build
+    window.addEventListener('load', async () => {
       try {
-        const url = `${SCRIPT_URL}?t=${Date.now()}`; // tránh cache
+        const url = `${SCRIPT_URL}?t=${Date.now()}`; // cache-bust
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        if (!Array.isArray(data)) throw new Error("Invalid data shape from server.");
+        const rows = await res.json(); // rows: [UserID, Session, MaxStreak, Timestamp, Date]
 
-        allData = data;
-        dataReady = true;
+        if (!Array.isArray(rows) || rows.length === 0) {
+          showEmpty();
+          return;
+        }
 
-        populateDateFilter();
-        loadingMessage.style.display = 'none';
-        updateChart(); // render lần đầu
+        // Parse rows
+        const parsed = rows.map(r => ({
+          userID: String(r[0]).trim(),
+          session: Number(r[1]),
+          maxStreak: Number(r[2])
+        })).filter(r => r.userID && [0,1,2].includes(r.session) && Number.isFinite(r.maxStreak));
+
+        if (parsed.length === 0) {
+          showEmpty();
+          return;
+        }
+
+        // Build datasets
+        const { rawBySession, validUsers, ratioByUser } = prepareDatasets(parsed);
+
+        // Render charts
+        $stateBox.classList.add('hidden');
+        $charts.classList.remove('hidden');
+        $tests.classList.remove('hidden');
+
+        renderRawHistogram(rawBySession);
+        renderRatioHistogram(ratioByUser, validUsers);
+        renderLineChart(ratioByUser, validUsers);
+
+        // Wire tests
+        document.getElementById('btnS1S0').onclick = () => runPairedTest(ratioByUser, validUsers, 1, 0);
+        document.getElementById('btnS2S0').onclick = () => runPairedTest(ratioByUser, validUsers, 2, 0);
+        document.getElementById('btnS2S1').onclick = () => runPairedTest(ratioByUser, validUsers, 2, 1);
 
       } catch (err) {
         console.error(err);
-        loadingMessage.textContent = "Could not load data. Please check the script deployment & permissions.";
-        loadingMessage.className = "text-center text-red-600 p-8";
+        showError();
       }
+    });
+
+    function showEmpty() {
+      $loading.classList.add('hidden');
+      $error.classList.add('hidden');
+      $empty.classList.remove('hidden');
+    }
+    function showError() {
+      $loading.classList.add('hidden');
+      $empty.classList.add('hidden');
+      $error.classList.remove('hidden');
     }
 
-    function populateDateFilter() {
-      const dates = [...new Set(allData.map(r => r[COL_DATE]).filter(Boolean))];
-      // sort theo thời gian (dd/MM/yyyy → yyyy-MM-dd), mới nhất trước
-      dates.sort((a, b) => {
-        const pa = a.split('/').reverse().join('-');
-        const pb = b.split('/').reverse().join('-');
-        return (pa < pb) ? 1 : (pa > pb ? -1 : 0);
+    // ---- Data prep ----
+    function prepareDatasets(parsedRows) {
+      // Raw maxStreak by session (1..20 bins)
+      const rawBySession = { 0: [], 1: [], 2: [] };
+      parsedRows.forEach(r => {
+        rawBySession[r.session].push(r.maxStreak);
       });
 
-      while (dateFilter.options.length > 1) dateFilter.remove(1);
-      for (const d of dates) {
-        const op = document.createElement('option');
-        op.value = d;
-        op.textContent = d;
-        dateFilter.appendChild(op);
+      // Group by userID → { 0: maxStreak?, 1: ?, 2: ? }
+      const byUser = {};
+      for (const r of parsedRows) {
+        if (!byUser[r.userID]) byUser[r.userID] = {};
+        byUser[r.userID][r.session] = r.maxStreak;
       }
+
+      // Compute ratios per user, and filter valid users
+      const ratioByUser = {}; // userID -> {0:ratio?,1:?,2:?}
+      const validUsers = [];
+      for (const uid of Object.keys(byUser)) {
+        const sessions = byUser[uid];
+        let invalid = false;
+        const ratios = {};
+        for (const s of [0,1,2]) {
+          if (sessions[s] != null) {
+            const maxCycles = SESSION_CYCLE_CONFIG[s].maxCycles;
+            const ratio = sessions[s] / maxCycles;
+            ratios[s] = ratio;
+            if (ratio > RATIO_CUTOFF) invalid = true;
+          }
+        }
+        if (!invalid) {
+          ratioByUser[uid] = ratios;
+          validUsers.push(uid);
+        }
+      }
+      return { rawBySession, validUsers, ratioByUser };
     }
 
-    function renderChart(counts, sessionLabel, dateLabel) {
-      // Xóa chart cũ bằng cách thay canvas mới để tránh lỗi destroy/context
-      const oldCanvas = document.getElementById('histogramChart');
-      if (oldCanvas) oldCanvas.remove();
-      const newCanvas = document.createElement('canvas');
-      newCanvas.id = 'histogramChart';
-      chartWrap.appendChild(newCanvas);
+    // ---- Charts ----
+    function destroyIfExists(chartRef) {
+      if (chartRef && typeof chartRef.destroy === 'function') chartRef.destroy();
+    }
 
-      const labels = Array.from({ length: 30 }, (_, i) => String(i + 1));
-      const ctx = newCanvas.getContext('2d');
+    function renderRawHistogram(rawBySession) {
+      destroyIfExists(rawHistChart);
 
-      return new Chart(ctx, {
+      // Build counts 1..20 per session
+      const labels = Array.from({length: 20}, (_, i) => String(i+1));
+      const colors = [
+        'rgba(59,130,246,0.6)',  // S0 blue
+        'rgba(16,185,129,0.6)',  // S1 green
+        'rgba(234,179,8,0.6)'    // S2 amber
+      ];
+      const borders = [
+        'rgba(59,130,246,1)',
+        'rgba(16,185,129,1)',
+        'rgba(234,179,8,1)'
+      ];
+      const datasets = [0,1,2].map(s => {
+        const counts = new Array(20).fill(0);
+        for (const v of rawBySession[s]) {
+          if (Number.isFinite(v) && v>=1 && v<=20) counts[v-1]++;
+        }
+        return {
+          label: `Session ${s}`,
+          data: counts,
+          backgroundColor: colors[s],
+          borderColor: borders[s],
+          borderWidth: 1,
+          borderRadius: 4
+        };
+      });
+
+      const ctx = document.getElementById('rawHist').getContext('2d');
+      rawHistChart = new Chart(ctx, {
         type: 'bar',
-        data: {
-          labels,
-          datasets: [{
-            label: `Number of answers (Session ${sessionLabel} - ${dateLabel})`,
-            data: counts,
-            backgroundColor: 'rgba(54, 162, 235, 0.6)',
-            borderColor: 'rgba(54, 162, 235, 1)',
-            borderWidth: 1,
-            borderRadius: 4,
-          }]
-        },
+        data: { labels, datasets },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           scales: {
-            y: {
-              beginAtZero: true,
-              title: { display: true, text: 'Number of respondents' },
-              ticks: { stepSize: 1 }
-            },
-            x: {
-              title: { display: true, text: 'Answer value (number of oscillations)' }
-            }
-          },
-          plugins: {
-            legend: { display: true, position: 'top' }
+            x: { title: { display: true, text: 'Max Streak (raw count)' } },
+            y: { beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'Number of respondents' } }
           }
         }
       });
     }
 
-    function updateChart() {
-      if (!dataReady) return;
+    function renderRatioHistogram(ratioByUser, validUsers) {
+      destroyIfExists(ratioHistChart);
 
-      const selectedDate    = dateFilter.value;
-      const selectedSession = sessionFilter.value;
+      // Collect ratios by session from valid users
+      const perSession = { 0: [], 1: [], 2: [] };
+      for (const uid of validUsers) {
+        const rmap = ratioByUser[uid];
+        for (const s of [0,1,2]) {
+          if (typeof rmap[s] === 'number' && isFinite(rmap[s])) perSession[s].push(rmap[s]);
+        }
+      }
 
-      const filtered = allData.filter(row => {
-        const okDate    = (selectedDate === 'all' || row[COL_DATE] === selectedDate);
-        const okSession = String(row[COL_SESSION]) === String(selectedSession);
-        return okDate && okSession;
+      // Bins from 0.0..1.2 step 0.1
+      const edges = [];
+      for (let b = 0; b <= 12; b++) edges.push(b/10); // [0, 0.1, ..., 1.2]
+      const labels = edges.map(v => v.toFixed(1));
+      const colors = [
+        'rgba(59,130,246,0.6)',
+        'rgba(16,185,129,0.6)',
+        'rgba(234,179,8,0.6)'
+      ];
+      const borders = [
+        'rgba(59,130,246,1)',
+        'rgba(16,185,129,1)',
+        'rgba(234,179,8,1)'
+      ];
+
+      const datasets = [0,1,2].map(s => {
+        const counts = new Array(edges.length).fill(0);
+        for (const v of perSession[s]) {
+          if (v <= RATIO_CUTOFF) {
+            const idx = Math.min(edges.length-1, Math.floor(v*10+1e-9));
+            counts[idx]++;
+          }
+        }
+        return {
+          label: `Session ${s}`,
+          data: counts,
+          backgroundColor: colors[s],
+          borderColor: borders[s],
+          borderWidth: 1,
+          borderRadius: 4
+        };
       });
 
-      const counts = new Array(30).fill(0);
-      for (const row of filtered) {
-        const ans = parseInt(row[COL_ANSWER], 10);
-        if (Number.isFinite(ans) && ans >= 1 && ans <= 30) counts[ans - 1]++;
-      }
-
-      // Nếu không có dữ liệu, hiển thị thông báo thay vì "mất bảng"
-      const total = counts.reduce((a, b) => a + b, 0);
-      if (total === 0) {
-        loadingMessage.textContent = "No data for selected filters.";
-        loadingMessage.className = "text-center text-gray-500 p-4";
-        loadingMessage.style.display = 'block';
-      } else {
-        loadingMessage.style.display = 'none';
-      }
-
-      // Luôn render chart (kể cả toàn số 0) để giữ trục hiển thị ổn định
-      renderChart(counts, selectedSession, (selectedDate === 'all' ? 'All dates' : selectedDate));
+      const ctx = document.getElementById('ratioHist').getContext('2d');
+      ratioHistChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { title: { display: true, text: 'Streak Ratio (MaxStreak / maxCycles)' } },
+            y: { beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'Number of respondents' } }
+          }
+        }
+      });
     }
 
-    // Init
-    window.onload = () => {
-      // gắn listener trước, nhưng updateChart có guard dataReady
-      dateFilter.addEventListener('change', updateChart);
-      sessionFilter.addEventListener('change', updateChart);
+    function renderLineChart(ratioByUser, validUsers) {
+      destroyIfExists(lineChart);
 
-      fetchData();
-    };
+      const labels = ['S0','S1','S2'];
+
+      // Build each user line (ensure we place NaN if missing)
+      const userDatasets = [];
+      for (const uid of validUsers) {
+        const rmap = ratioByUser[uid] || {};
+        const arr = [0,1,2].map(s => (typeof rmap[s] === 'number' ? rmap[s] : NaN));
+        // Skip if all missing
+        if (arr.every(x => isNaN(x))) continue;
+        userDatasets.push({
+          label: uid,
+          data: arr,
+          borderWidth: 1,
+          pointRadius: 0,
+          tension: 0.25,
+          borderColor: 'rgba(100,116,139,0.35)', // slate-500 @ ~0.35
+          backgroundColor: 'rgba(100,116,139,0.15)',
+          spanGaps: false, // do not connect across missing sessions
+        });
+      }
+
+      // Mean line (bold)
+      const means = [0,1,2].map(s => {
+        const vals = [];
+        for (const uid of validUsers) {
+          const v = ratioByUser[uid] && ratioByUser[uid][s];
+          if (typeof v === 'number' && isFinite(v)) vals.push(v);
+        }
+        return vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length) : NaN;
+      });
+      userDatasets.push({
+        label: 'Mean',
+        data: means,
+        borderWidth: 3,
+        pointRadius: 3,
+        tension: 0.2,
+        borderColor: 'rgba(37,99,235,1)',     // blue-600
+        backgroundColor: 'rgba(37,99,235,0.15)'
+      });
+
+      const ctx = document.getElementById('lineChart').getContext('2d');
+      lineChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets: userDatasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { intersect: false, mode: 'nearest' },
+          scales: {
+            y: {
+              beginAtZero: true,
+              suggestedMax: 1.2,
+              title: { display: true, text: 'Streak Ratio' }
+            },
+            x: { title: { display: true, text: 'Session' } }
+          },
+          plugins: {
+            legend: {
+              display: true,
+              labels: { filter: item => item.text === 'Mean' } // only show Mean in legend
+            }
+          }
+        }
+      });
+    }
+
+    // ---- Paired tests ----
+    function runPairedTest(ratioByUser, validUsers, sA, sB) {
+      // Collect paired ratios for users who have both sessions
+      const A = [], B = [];
+      for (const uid of validUsers) {
+        const rmap = ratioByUser[uid] || {};
+        const a = rmap[sA], b = rmap[sB];
+        if (typeof a === 'number' && isFinite(a) && typeof b === 'number' && isFinite(b)) {
+          A.push(a); B.push(b);
+        }
+      }
+      if (A.length < 3) {
+        $out.innerHTML = `<div class="text-slate-600">Not enough paired data for S${sA} vs S${sB}.</div>`;
+        return;
+      }
+
+      const diffs = A.map((a,i)=> a - B[i]);
+      const n = diffs.length;
+      const mean = diffs.reduce((x,y)=>x+y,0)/n;
+      const sd = Math.sqrt(diffs.reduce((s,x)=> s + Math.pow(x-mean,2), 0)/(n-1));
+      const t = mean / (sd / Math.sqrt(n));
+      const df = n - 1;
+      // two-tailed p using jStat
+      const p = 2 * (1 - jStat.studentt.cdf(Math.abs(t), df));
+      const stars = pStars(p);
+
+      $out.innerHTML = `
+        <div class="bg-slate-50 rounded-lg p-3">
+          <div><span class="font-semibold">S${sA} vs S${sB}</span> (paired t-test)</div>
+          <div class="text-sm mt-1 code">n = ${n}, meanΔ = ${mean.toFixed(3)}, t(${df}) = ${t.toFixed(3)}, p = ${fmtP(p)} ${stars}</div>
+        </div>
+      `;
+    }
+
+    function pStars(p) {
+      if (p < 0.001) return '<span class="ml-2 text-amber-600 font-semibold">***</span>';
+      if (p < 0.01)  return '<span class="ml-2 text-amber-600 font-semibold">**</span>';
+      if (p < 0.05)  return '<span class="ml-2 text-amber-600 font-semibold">*</span>';
+      return '';
+    }
+    function fmtP(p) {
+      if (p < 0.0001) return '&lt; 1e-4';
+      return p.toFixed(4);
+    }
   </script>
 </body>
 </html>
