@@ -411,8 +411,9 @@
 
     function renderRawHistogram(rawBySession) {
       destroyRawHist();
-
-      const labels = Array.from({length: 20}, (_, i) => String(i+1));
+      
+      const MAX_STREAK = 40; // ✅ chỉnh giới hạn tối đa tại đây
+      const labels = Array.from({length: MAX_STREAK}, (_, i) => String(i+1));
       const colors = [
         'rgba(59,130,246,0.6)',  // S0 blue
         'rgba(16,185,129,0.6)',  // S1 green
@@ -424,9 +425,9 @@
         'rgba(234,179,8,1)'
       ];
       const datasets = [0,1,2].map(s => {
-        const counts = new Array(20).fill(0);
+        const counts = new Array(MAX_STREAK).fill(0);
         for (const v of rawBySession[s]) {
-          if (Number.isFinite(v) && v>=1 && v<=20) counts[v-1]++;
+          if (Number.isFinite(v) && v>=1 && v<=MAX_STREAK) counts[v-1]++;
         }
         return {
           label: `Session ${s}`,
