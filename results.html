@@ -47,9 +47,6 @@
     <!-- Session config -->
     <section class="card bg-white p-5">
       <div class="flex flex-wrap gap-3 items-center">
-        <div class="pill">Session 0: <span class="code">24s</span>, cycle <span class="code">3.0s</span>, maxCycles=<span class="code">8</span></div>
-        <div class="pill">Session 1: <span class="code">58s</span>, cycle <span class="code">4.0s</span>, maxCycles=<span class="code">14</span></div>
-        <div class="pill">Session 2: <span class="code">58s</span>, cycle <span class="code">3.5s</span>, maxCycles=<span class="code">16</span></div>
         <div class="pill">Exclusion: ratio &gt; 1.2 (drop entire user)</div>
       </div>
     </section>
@@ -170,7 +167,7 @@
     const SESSION_CYCLE_CONFIG = {
       0: { videoLength: 24, cycleTime: 3.0, maxCycles: 8  },
       1: { videoLength: 58, cycleTime: 4.0, maxCycles: 14 },
-      2: { videoLength: 58, cycleTime: 3.5, maxCycles: 16 }
+      2: { videoLength: 27, cycleTime: 3.5, maxCycles: 10 }
     };
 
     // Ratio exclusion
