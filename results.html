@@ -456,8 +456,12 @@
 
       // Bins 0.0 .. 1.2 with step = 0.02
       const step = 0.02;
-      const edges = []; for (let b = 0; b <= 1.2 + 1e-9; b += step) edges.push(Number(b.toFixed(2)));
+      const MAX  = RATIO_CUTOFF;
+      const BIN_COUNT = Math.floor(MAX / STEP) + 1; // 0.00 .. 1.20 inclusive
+
+      const edges  = Array.from({ length: BIN_COUNT }, (_, i) => Number((i * STEP).toFixed(2)));
       const labels = edges.map(v => v.toFixed(2));
+      
       const colors = [
         'rgba(59,130,246,0.6)',
         'rgba(16,185,129,0.6)',
@@ -472,7 +476,7 @@
       const datasets = [0,1,2].map(s => {
         const counts = new Array(edges.length).fill(0);
         for (const v of perSession[s]) {
-          const idx = Math.min(edges.length-1, Math.floor(v*10+1e-9));
+          const idx = Math.min(BIN_COUNT - 1, Math.floor((v + 1e-9) / STEP)); // ✅ dùng STEP, không dùng *10
           counts[idx]++;
         }
         return {
@@ -492,7 +496,10 @@
         options: {
           responsive: true, maintainAspectRatio: false,
           scales: {
-            x: { title: { display: true, text: 'Streak Ratio (MaxStreak / maxCycles)' } },
+            x: { title: { display: true, text: 'Streak Ratio (MaxStreak / maxCycles)' },
+              // (tuỳ chọn) giảm mật độ nhãn trục X cho dễ đọc
+            ticks: { callback: (v, i) => (i % 5 === 0 ? labels[i] : '') } // hiện mỗi 0.10
+          },
             y: { beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'Number of respondents' } }
           }
         }
