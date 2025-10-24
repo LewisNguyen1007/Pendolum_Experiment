@@ -34,8 +34,9 @@
       <div>
         <h1 class="text-2xl md:text-3xl font-bold text-slate-900">Pendulum Attention Experiment – Results</h1>
         <p class="muted mt-1 text-sm">
-          Session config is encoded below. Raw counts use filtered submissions.
-          Ratio-based charts & tests exclude users if any session ratio &gt; <span class="code">1.2</span>.
+          Raw counts use filtered submissions. Ratio-based charts & tests apply
+          <span class="code">per-session exclusion</span>: values with Streak Ratio &gt; <span class="code">1.2</span>
+          are omitted for that session only (other sessions for the same user are kept).
         </p>
       </div>
       <div class="text-right">
@@ -47,7 +48,7 @@
     <!-- Session config -->
     <section class="card bg-white p-5">
       <div class="flex flex-wrap gap-3 items-center">
-        <div class="pill">Exclusion: ratio &gt; 1.2 (drop entire user)</div>
+        <div class="pill">Exclusion rule: per-session &gt; 1.2 (drop the value, keep the user)</div>
       </div>
     </section>
 
@@ -112,7 +113,7 @@
       <div class="card bg-white p-5">
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-lg font-semibold">Histogram — Streak Ratio (by Session)</h2>
-          <span class="muted text-xs">Valid users only (ratio ≤ 1.2 for all available sessions)</span>
+          <span class="muted text-xs">Per-session exclusion (ratio &gt; 1.2 removed)</span>
         </div>
         <div class="chart-box"><canvas id="ratioHist"></canvas></div>
       </div>
@@ -134,7 +135,7 @@
     <section id="tests" class="hidden card bg-white p-5">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-semibold">Paired Significance Tests</h2>
-        <span class="muted text-xs">Valid users only (paired)</span>
+        <span class="muted text-xs">Per-session exclusion; pairs require valid values in both sessions</span>
       </div>
 
       <div id="testsControls" class="flex flex-wrap gap-3">
@@ -170,7 +171,7 @@
       2: { videoLength: 27, cycleTime: 3.5, maxCycles: 10 }
     };
 
-    // Ratio exclusion
+    // Per-session ratio exclusion threshold
     const RATIO_CUTOFF = 1.2;
 
     // DOM
@@ -215,7 +216,6 @@
           userID: String(r[0]).trim(),
           session: Number(r[1]),
           maxStreak: Number(r[2]),
-          // timestamp: r[3],  // not used in UI
           date: String(r[4] || '').trim()
         })).filter(r => r.userID && [0,1,2].includes(r.session) && Number.isFinite(r.maxStreak));
 
@@ -232,7 +232,7 @@
 
         applyFiltersAndRender();
 
-        // Wire buttons
+        // Buttons
         $applyBtn.onclick = () => applyFiltersAndRender();
         $resetBtn.onclick = () => {
           $sessionFilter.value = 'all';
@@ -281,46 +281,41 @@
         return okSession && okDate;
       });
 
-      // Update filter note
+      // Filter note
       const sTxt = (CURRENT_FILTER.session === 'all') ? 'All Sessions' : `Session ${CURRENT_FILTER.session}`;
       const dTxt = (CURRENT_FILTER.date === 'all') ? 'All Days' : CURRENT_FILTER.date;
       $filterNote.textContent = `Current filter → Session: ${sTxt} | Date: ${dTxt}`;
 
       if (subset.length === 0) {
-        // Clear charts + show "no data"
         destroyCharts();
         renderNoDataState();
         return;
       }
 
-      // Build raw-by-session (for the raw histogram)
+      // Raw-by-session (for raw histogram)
       const rawBySession = { 0: [], 1: [], 2: [] };
       subset.forEach(r => rawBySession[r.session].push(r.maxStreak));
 
-      // Build ratios & valid users for ratio-based charts/test
+      // Ratios (per-session exclusion) & valid users
       const { validUsers, ratioByUser } = buildRatiosAndValidUsers(subset);
 
-      // Determine how many sessions are effectively present among valid users
-      const sessionsPresent = sessionCoverage(ratioByUser, validUsers); // set like {0:true,1:true,...}
+      // Sessions present among valid values
+      const sessionsPresent = sessionCoverage(ratioByUser, validUsers);
       const nSessionsPresent = Object.keys(sessionsPresent).length;
 
       // Render Raw Histogram (always)
       renderRawHistogram(rawBySession);
 
-      // Render Ratio Histogram (valid users only)
+      // Ratio Histogram (valid values only)
       if (validUsers.length === 0) {
         destroyRatioHist();
-        // show empty ratio hist
         renderEmptyRatioHistogram();
       } else {
         renderRatioHistogram(ratioByUser, validUsers);
       }
 
       // Line chart + Tests availability
-      const canPaired = nSessionsPresent >= 2 && validUsers.length >= 3;
-
       if (nSessionsPresent < 2 || validUsers.length === 0) {
-        // Show info messages instead of charts/tests
         destroyLineChart();
         $lineMsg.classList.remove('hidden');
         $lineWrap.classList.add('hidden');
@@ -329,7 +324,6 @@
         $testsMsg.classList.remove('hidden');
         $testOut.innerHTML = '';
       } else {
-        // Render line chart + enable tests
         $lineMsg.classList.add('hidden');
         $lineWrap.classList.remove('hidden');
         renderLineChart(ratioByUser, validUsers);
@@ -337,7 +331,6 @@
         $testsControls.classList.remove('hidden');
         $testsMsg.classList.add('hidden');
 
-        // Wire tests
         document.getElementById('btnS1S0').onclick = () => runPairedTest(ratioByUser, validUsers, 1, 0);
         document.getElementById('btnS2S0').onclick = () => runPairedTest(ratioByUser, validUsers, 2, 0);
         document.getElementById('btnS2S1').onclick = () => runPairedTest(ratioByUser, validUsers, 2, 1);
@@ -346,7 +339,6 @@
     }
 
     function renderNoDataState() {
-      // Destroy all charts and show helpful notes
       destroyCharts();
       const ctx1 = document.getElementById('rawHist').getContext('2d');
       rawHistChart = new Chart(ctx1, { type:'bar', data:{labels:[],datasets:[]}, options:{plugins:{title:{display:true,text:'No data for current filter'}}}});
@@ -360,6 +352,7 @@
       $testOut.innerHTML = '';
     }
 
+    // *** UPDATED: per-session exclusion (do NOT drop the whole user) ***
     function buildRatiosAndValidUsers(rowsSubset) {
       // Group by user
       const byUser = {};
@@ -368,24 +361,22 @@
         byUser[r.userID][r.session] = r.maxStreak;
       });
 
-      // Compute ratios; exclude user if any ratio > cutoff
+      // Compute ratios; if ratio > cutoff → set NaN for that session only
       const ratioByUser = {};
       const validUsers = [];
       for (const uid of Object.keys(byUser)) {
         const map = byUser[uid];
-        let invalid = false;
         const ratios = {};
         [0,1,2].forEach(s => {
           if (map[s] != null) {
             const ratio = map[s] / SESSION_CYCLE_CONFIG[s].maxCycles;
-            ratios[s] = ratio;
-            if (ratio > RATIO_CUTOFF) invalid = true;
+            ratios[s] = (ratio > RATIO_CUTOFF) ? NaN : ratio;
           }
         });
-        if (!invalid) {
-          ratioByUser[uid] = ratios;
-          validUsers.push(uid);
-        }
+        // keep user if they have at least one finite ratio
+        const hasAnyValid = [0,1,2].some(s => Number.isFinite(ratios[s]));
+        if (hasAnyValid) validUsers.push(uid);
+        ratioByUser[uid] = ratios;
       }
       return { validUsers, ratioByUser };
     }
@@ -395,24 +386,22 @@
       [0,1,2].forEach(s => {
         for (const uid of validUsers) {
           const v = ratioByUser[uid] && ratioByUser[uid][s];
-          if (typeof v === 'number' && isFinite(v)) { present[s] = true; break; }
+          if (Number.isFinite(v)) { present[s] = true; break; }
         }
       });
       return present;
     }
 
     // ---- CHART RENDERERS ----
-    function destroyCharts() {
-      destroyRawHist(); destroyRatioHist(); destroyLineChart();
-    }
+    function destroyCharts() { destroyRawHist(); destroyRatioHist(); destroyLineChart(); }
     function destroyRawHist(){ if (rawHistChart) { rawHistChart.destroy(); rawHistChart = null; } }
     function destroyRatioHist(){ if (ratioHistChart) { ratioHistChart.destroy(); ratioHistChart = null; } }
     function destroyLineChart(){ if (lineChart) { lineChart.destroy(); lineChart = null; } }
 
     function renderRawHistogram(rawBySession) {
       destroyRawHist();
-      
-      const MAX_STREAK = 40; // ✅ chỉnh giới hạn tối đa tại đây
+
+      const MAX_STREAK = 40; // x-axis limit for raw Max Streak
       const labels = Array.from({length: MAX_STREAK}, (_, i) => String(i+1));
       const colors = [
         'rgba(59,130,246,0.6)',  // S0 blue
@@ -426,7 +415,7 @@
       ];
       const datasets = [0,1,2].map(s => {
         const counts = new Array(MAX_STREAK).fill(0);
-        for (const v of rawBySession[s]) {
+        for (const v of (rawBySession[s] || [])) {
           if (Number.isFinite(v) && v>=1 && v<=MAX_STREAK) counts[v-1]++;
         }
         return {
@@ -456,13 +445,12 @@
     function renderRatioHistogram(ratioByUser, validUsers) {
       destroyRatioHist();
 
-      // Collect ratios by session
       const perSession = { 0: [], 1: [], 2: [] };
       for (const uid of validUsers) {
         const rmap = ratioByUser[uid];
         [0,1,2].forEach(s => {
           const v = rmap[s];
-          if (typeof v === 'number' && isFinite(v)) perSession[s].push(v);
+          if (Number.isFinite(v)) perSession[s].push(v);  // already excluded > cutoff
         });
       }
 
@@ -483,10 +471,8 @@
       const datasets = [0,1,2].map(s => {
         const counts = new Array(edges.length).fill(0);
         for (const v of perSession[s]) {
-          if (v <= RATIO_CUTOFF) {
-            const idx = Math.min(edges.length-1, Math.floor(v*10+1e-9));
-            counts[idx]++;
-          }
+          const idx = Math.min(edges.length-1, Math.floor(v*10+1e-9));
+          counts[idx]++;
         }
         return {
           label: `Session ${s}`,
@@ -531,10 +517,9 @@
       const labels = ['S0','S1','S2'];
       const userDatasets = [];
 
-      // user lines
       for (const uid of validUsers) {
         const rmap = ratioByUser[uid] || {};
-        const arr = [0,1,2].map(s => (typeof rmap[s] === 'number' ? rmap[s] : NaN));
+        const arr = [0,1,2].map(s => (Number.isFinite(rmap[s]) ? rmap[s] : NaN));
         if (arr.every(x => isNaN(x))) continue;
         userDatasets.push({
           label: uid,
@@ -542,18 +527,17 @@
           borderWidth: 1,
           pointRadius: 0,
           tension: 0.25,
-          borderColor: 'rgba(100,116,139,0.35)', // slate-500 ~0.35
+          borderColor: 'rgba(100,116,139,0.35)',
           backgroundColor: 'rgba(100,116,139,0.15)',
           spanGaps: false
         });
       }
 
-      // mean line
       const means = [0,1,2].map(s => {
         const vals = [];
         for (const uid of validUsers) {
           const v = ratioByUser[uid] && ratioByUser[uid][s];
-          if (typeof v === 'number' && isFinite(v)) vals.push(v);
+          if (Number.isFinite(v)) vals.push(v);
         }
         return vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length) : NaN;
       });
@@ -592,7 +576,7 @@
       for (const uid of validUsers) {
         const rmap = ratioByUser[uid] || {};
         const a = rmap[sA], b = rmap[sB];
-        if (typeof a === 'number' && isFinite(a) && typeof b === 'number' && isFinite(b)) {
+        if (Number.isFinite(a) && Number.isFinite(b)) {
           A.push(a); B.push(b);
         }
       }
@@ -631,7 +615,6 @@
 
     // ---- Utils ----
     function dateSortDDMMYYYY(a, b) {
-      // Parse dd/MM/yyyy into yyyymmdd numeric
       const pa = a.split('/'); const pb = b.split('/');
       if (pa.length !== 3 || pb.length !== 3) return a.localeCompare(b);
       const na = Number(pa[2])*10000 + Number(pa[1])*100 + Number(pa[0]);
