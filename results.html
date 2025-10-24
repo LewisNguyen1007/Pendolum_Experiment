@@ -457,9 +457,9 @@
       // Bins 0.0 .. 1.2 with step = 0.02
       const step = 0.02;
       const MAX  = RATIO_CUTOFF;
-      const BIN_COUNT = Math.floor(MAX / STEP) + 1; // 0.00 .. 1.20 inclusive
+      const BIN_COUNT = Math.floor(MAX / step) + 1; // 0.00 .. 1.20 inclusive
 
-      const edges  = Array.from({ length: BIN_COUNT }, (_, i) => Number((i * STEP).toFixed(2)));
+      const edges  = Array.from({ length: BIN_COUNT }, (_, i) => Number((i * step).toFixed(2)));
       const labels = edges.map(v => v.toFixed(2));
       
       const colors = [
@@ -476,7 +476,7 @@
       const datasets = [0,1,2].map(s => {
         const counts = new Array(edges.length).fill(0);
         for (const v of perSession[s]) {
-          const idx = Math.min(BIN_COUNT - 1, Math.floor((v + 1e-9) / STEP)); // ✅ dùng STEP, không dùng *10
+          const idx = Math.min(BIN_COUNT - 1, Math.floor((v + 1e-9) / step)); // ✅ dùng step, không dùng *10
           counts[idx]++;
         }
         return {
