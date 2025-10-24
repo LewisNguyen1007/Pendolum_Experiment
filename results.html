@@ -454,9 +454,10 @@
         });
       }
 
-      // Bins 0.0 .. 1.2
-      const edges = []; for (let b=0; b<=12; b++) edges.push(b/10);
-      const labels = edges.map(v => v.toFixed(1));
+      // Bins 0.0 .. 1.2 with step = 0.02
+      const step = 0.02;
+      const edges = []; for (let b = 0; b <= 1.2 + 1e-9; b += step) edges.push(Number(b.toFixed(2)));
+      const labels = edges.map(v => v.toFixed(2));
       const colors = [
         'rgba(59,130,246,0.6)',
         'rgba(16,185,129,0.6)',
